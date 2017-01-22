@@ -22,7 +22,12 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+import six
 import os
 import sys
 import datetime
@@ -35,18 +40,20 @@ import base64
 from functools import wraps
 from decimal import Decimal
 
-import util
-from util import print_msg, format_satoshis, print_stderr
-import bitcoin
-from bitcoin import is_address, hash_160, COIN, TYPE_ADDRESS
-from transaction import Transaction
-import paymentrequest
-from paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
-import contacts
+from .import util
+from .util import print_msg, format_satoshis, print_stderr
+from .import bitcoin
+from .bitcoin import is_address,  hash_160, COIN, TYPE_ADDRESS
+from .transaction import Transaction
+from .import paymentrequest
+from .paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
+from .import contacts
+if six.PY3:
+    long = int
 known_commands = {}
 
-class Command:
 
+class Command:
     def __init__(self, func, s):
         self.name = func.__name__
         self.requires_network = 'n' in s
@@ -54,8 +61,8 @@ class Command:
         self.requires_password = 'p' in s
         self.description = func.__doc__
         self.help = self.description.split('.')[0] if self.description else None
-        varnames = func.func_code.co_varnames[1:func.func_code.co_argcount]
-        self.defaults = func.func_defaults
+        varnames = func.__code__.co_varnames[1:func.__code__.co_argcount]
+        self.defaults = func.__defaults__
         if self.defaults:
             n = len(self.defaults)
             self.params = list(varnames[:-n])
@@ -676,7 +683,7 @@ command_options = {
 
 
 # don't use floats because of rounding errors
-from transaction import tx_from_str
+from .transaction import tx_from_str
 json_loads = lambda x: json.loads(x, parse_float=lambda x: str(Decimal(x)))
 arg_types = {
     'num': int,
@@ -735,7 +742,7 @@ def add_network_options(parser):
     parser.add_argument("-s", "--server", dest="server", default=None, help="set server host:port:protocol, where protocol is either t (tcp) or s (ssl)")
     parser.add_argument("-p", "--proxy", dest="proxy", default=None, help="set proxy [type:]host[:port], where type is socks4,socks5 or http")
 
-from util import profiler
+from .util import profiler
 
 @profiler
 def get_parser():
