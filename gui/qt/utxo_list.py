@@ -22,12 +22,6 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
-import six
 from .util import *
 from electrum.i18n import _
 from electrum.bitcoin import is_address
@@ -77,7 +71,7 @@ class UTXOList(MyTreeWidget):
         menu = QMenu()
         if len(selected) == 1 and is_address(selected[0]):
             addr = selected[0]
-            coins = filter(lambda x: x.get('address') == addr, self.utxos)
+            coins = list(filter(lambda x: x.get('address') == addr, self.utxos))
             menu.addAction(_("Copy Address"), lambda: self.parent.app.clipboard().setText(addr))
             if not self.wallet.is_frozen(addr):
                 menu.addAction(_("Freeze"), lambda: self.parent.set_frozen_state([addr], True))
@@ -85,6 +79,6 @@ class UTXOList(MyTreeWidget):
                 menu.addAction(_("Unfreeze"), lambda: self.parent.set_frozen_state([addr], False))
             menu.addAction(_("Spend from Address"), lambda: self.parent.spend_coins(coins))
         else:
-            coins = filter(lambda x: self.get_name(x) in selected, self.utxos)
+            coins = list(filter(lambda x: self.get_name(x) in selected, self.utxos))
             menu.addAction(_("Spend"), lambda: self.parent.spend_coins(coins))
         menu.exec_(self.viewport().mapToGlobal(position))
