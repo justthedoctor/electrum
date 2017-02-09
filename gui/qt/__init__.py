@@ -159,18 +159,22 @@ class ElectrumGui:
                 w.bring_to_top()
                 break
         else:
-            try:
-                wallet = self.daemon.load_wallet(path)
-            except BaseException as e:
-                QMessageBox.information(None, _('Error'), str(e), _('OK'))
-                return
-            if wallet is None:
+            if not os.path.exists(path):
                 wizard = InstallWizard(self.config, self.app, self.plugins, path)
                 wallet = wizard.run_and_get_wallet()
                 if not wallet:
                     return
                 wallet.start_threads(self.daemon.network)
                 self.daemon.add_wallet(wallet)
+            else:
+                from password_dialog import PasswordDialog
+                pw = PasswordDialog().run()
+                try:
+                    wallet = self.daemon.load_wallet(path, pw)
+                except BaseException as e:
+                    QMessageBox.information(None, _('Error'), str(e), _('OK'))
+                    return
+
             w = self.create_window_for_wallet(wallet)
         if uri:
             w.pay_to_URI(uri)

@@ -115,8 +115,9 @@ class Daemon(DaemonThread):
         self.gui = None
         self.wallets = {}
         # Setup JSONRPC server
-        path = config.get_wallet_path()
-        default_wallet = self.load_wallet(path)
+        #path = config.get_wallet_path()
+        #default_wallet = self.load_wallet(path)
+        default_wallet = None
         self.cmd_runner = Commands(self.config, default_wallet, self.network)
         self.init_server(config, fd)
 
@@ -185,7 +186,7 @@ class Daemon(DaemonThread):
             response = "Error: Electrum is running in daemon mode. Please stop the daemon first."
         return response
 
-    def load_wallet(self, path):
+    def load_wallet(self, path, pw):
         # wizard will be launched if we return
         if path in self.wallets:
             wallet = self.wallets[path]
@@ -193,6 +194,9 @@ class Daemon(DaemonThread):
         storage = WalletStorage(path)
         if not storage.file_exists:
             return
+        # todo: check if it is encrypted first
+        storage.read(pw)
+
         if storage.requires_split():
             return
         if storage.requires_upgrade():

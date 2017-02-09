@@ -332,7 +332,7 @@ class BaseWizard(object):
             self.on_password(None)
 
     def on_password(self, password):
-        self.storage.put('use_encryption', bool(password))
+        self.storage.set_password(password)
         for k in self.keystores:
             if k.may_have_password():
                 k.update_password(None, password)

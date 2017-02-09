@@ -30,6 +30,8 @@ from util import *
 import re
 import math
 
+from electrum.plugins import run_hook
+
 def check_password_strength(password):
 
     '''
@@ -153,7 +155,7 @@ class PasswordLayout(object):
         return pw
 
 
-class PasswordDialog(WindowModalDialog):
+class ChangePasswordDialog(WindowModalDialog):
 
     def __init__(self, parent, wallet, msg, kind):
         WindowModalDialog.__init__(self, parent)
@@ -168,5 +170,28 @@ class PasswordDialog(WindowModalDialog):
     def run(self):
         if not self.exec_():
             return False, None, None
-
         return True, self.playout.old_password(), self.playout.new_password()
+
+
+class PasswordDialog(WindowModalDialog):
+
+    def __init__(self, parent=None, msg=None):
+        msg = msg or _('Please enter your password')
+        WindowModalDialog.__init__(self, parent, _("Enter Password"))
+        self.pw = pw = QLineEdit()
+        pw.setEchoMode(2)
+        vbox = QVBoxLayout()
+        vbox.addWidget(QLabel(msg))
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        grid.addWidget(QLabel(_('Password')), 1, 0)
+        grid.addWidget(pw, 1, 1)
+        vbox.addLayout(grid)
+        vbox.addLayout(Buttons(CancelButton(self), OkButton(self)))
+        self.setLayout(vbox)
+        run_hook('password_dialog', pw, grid, 1)
+
+    def run(self):
+        if not self.exec_():
+            return
+        return unicode(self.pw.text())

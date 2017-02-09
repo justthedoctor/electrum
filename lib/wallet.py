@@ -1604,7 +1604,7 @@ class Simple_Deterministic_Wallet(Deterministic_Wallet, Simple_Wallet):
     def update_password(self, old_pw, new_pw):
         self.keystore.update_password(old_pw, new_pw)
         self.save_keystore()
-        self.storage.put('use_encryption', (new_pw is not None))
+        self.storage.set_password(new_pw)
         self.storage.write()
 
     def save_keystore(self):
@@ -1711,7 +1711,7 @@ class Multisig_Wallet(Deterministic_Wallet, P2SH):
             if keystore.can_change_password():
                 keystore.update_password(old_pw, new_pw)
                 self.storage.put(name, keystore.dump())
-        self.storage.put('use_encryption', (new_pw is not None))
+        self.storage.set_password(new_pw)
 
     def check_password(self, password):
         self.keystore.check_password(password)
