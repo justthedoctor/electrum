@@ -168,9 +168,9 @@ class ElectrumGui:
                 self.daemon.add_wallet(wallet)
             else:
                 from password_dialog import PasswordDialog
-                pw = PasswordDialog().run()
+                password_getter = lambda: PasswordDialog().run()
                 try:
-                    wallet = self.daemon.load_wallet(path, pw)
+                    wallet = self.daemon.load_wallet(path, password_getter)
                 except BaseException as e:
                     QMessageBox.information(None, _('Error'), str(e), _('OK'))
                     return

@@ -33,6 +33,7 @@ import copy
 import re
 import stat
 import pbkdf2, hmac, hashlib
+import base64
 
 from i18n import _
 from util import NotEnoughFunds, PrintError, profiler
@@ -88,6 +89,17 @@ class WalletStorage(PrintError):
         """Set self.pubkey"""
         self.put('use_encryption', (pw is not None))
         self.decrypt(None, pw)
+
+    def is_encrypted(self):
+        try:
+            with open(self.path, "r") as f:
+                s = f.read(8)
+        except IOError:
+            return
+        try:
+            return base64.b64decode(s).startswith('BIE1')
+        except:
+            return False
 
     def read(self, password):
         """Read the contents of the wallet file."""
