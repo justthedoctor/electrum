@@ -22,7 +22,7 @@ class GoBack(Exception):
 
 MSG_GENERATING_WAIT = _("Electrum is generating your addresses, please wait...")
 MSG_ENTER_ANYTHING = _("Please enter a seed phrase, a master key, a list of "
-                       "Bitcoin addresses, or a list of private keys")
+                       "Pandacoin addresses, or a list of private keys")
 MSG_ENTER_SEED_OR_MPK = _("Please enter a seed phrase or a master key (xpub or xprv):")
 MSG_COSIGNER = _("Please enter the master public key of cosigner #%d:")
 MSG_ENTER_PASSWORD = _("Choose a password to encrypt your wallet keys.") + '\n'\
@@ -264,14 +264,9 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
 
     @wizard_dialog
     def restore_seed_dialog(self, run_next, test):
-        options = []
-        if self.opt_ext:
-            options.append('ext')
-        if self.opt_bip39:
-            options.append('bip39')
         title = _('Enter Seed')
         message = _('Please enter your seed phrase in order to restore your wallet.')
-        return self.seed_input(title, message, test, options)
+        return self.seed_input(title, message, test, ['ext', 'bip39'])
 
     @wizard_dialog
     def confirm_seed_dialog(self, run_next, test):
@@ -345,7 +340,6 @@ class InstallWizard(QDialog, MessageBoxMixin, BaseWizard):
         self.refresh_gui()
         t = threading.Thread(target = task)
         t.start()
-        t.join()
 
     @wizard_dialog
     def choice_dialog(self, title, message, choices, run_next):

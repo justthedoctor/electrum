@@ -257,15 +257,10 @@ class Interface(util.PrintError):
         self.request_time = time.time()
         self.unsent_requests.append(args)
 
-    def num_requests(self):
-        '''Keep unanswered requests below 100'''
-        n = 100 - len(self.unanswered_requests)
-        return min(n, len(self.unsent_requests))
-
     def send_requests(self):
         '''Sends queued requests.  Returns False on failure.'''
         make_dict = lambda (m, p, i): {'method': m, 'params': p, 'id': i}
-        n = self.num_requests()
+        n = 100 - len(self.unanswered_requests)
         wire_requests = self.unsent_requests[0:n]
         try:
             self.pipe.send_all(map(make_dict, wire_requests))
@@ -313,11 +308,10 @@ class Interface(util.PrintError):
                 response = self.pipe.get()
             except util.timeout:
                 break
-            if not type(response) is dict:
+            if response is None:
                 responses.append((None, None))
-                if response is None:
-                    self.closed_remotely = True
-                    self.print_error("connection closed remotely")
+                self.closed_remotely = True
+                self.print_error("connection closed remotely")
                 break
             if self.debug:
                 self.print_error("<--", response)

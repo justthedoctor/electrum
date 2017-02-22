@@ -30,15 +30,14 @@ from util import *
 from electrum.i18n import _
 from electrum.util import block_explorer_URL, format_satoshis, format_time
 from electrum.plugins import run_hook
-from electrum.util import timestamp_to_datetime, profiler
 
 
 TX_ICONS = [
     "warning.png",
     "warning.png",
     "warning.png",
-    "unconfirmed.png",
-    "unconfirmed.png",
+    "confirmed.png",
+    "confirmed.png",
     "clock1.png",
     "clock2.png",
     "clock3.png",
@@ -49,7 +48,6 @@ TX_ICONS = [
 
 
 class HistoryList(MyTreeWidget):
-    filter_columns = [2, 3, 4]  # Date, Description, Amount
 
     def __init__(self, parent=None):
         MyTreeWidget.__init__(self, parent, self.create_menu, [], 3)
@@ -57,25 +55,21 @@ class HistoryList(MyTreeWidget):
         self.setColumnHidden(1, True)
 
     def refresh_headers(self):
-        ccy = self.parent.fx.ccy
         headers = ['', '', _('Date'), _('Description') , _('Amount'), _('Balance')]
-        if self.parent.fx.show_history():
-            headers.extend(['%s '%ccy + _('Amount'), '%s '%ccy + _('Balance')])
+        run_hook('history_tab_headers', headers)
         self.update_headers(headers)
 
     def get_domain(self):
         '''Replaced in address_dialog.py'''
         return self.wallet.get_addresses()
 
-    @profiler
     def on_update(self):
         self.wallet = self.parent.wallet
         h = self.wallet.get_history(self.get_domain())
         item = self.currentItem()
         current_tx = item.data(0, Qt.UserRole).toString() if item else None
         self.clear()
-        fx = self.parent.fx
-        fx.history_used_spot = False
+        run_hook('history_tab_update_begin')
         for h_item in h:
             tx_hash, height, conf, timestamp, value, balance = h_item
             status, status_str = self.wallet.get_tx_status(tx_hash, height, conf, timestamp)
@@ -84,11 +78,7 @@ class HistoryList(MyTreeWidget):
             balance_str = self.parent.format_amount(balance, whitespaces=True)
             label = self.wallet.get_label(tx_hash)
             entry = ['', tx_hash, status_str, label, v_str, balance_str]
-            if fx.show_history():
-                date = timestamp_to_datetime(time.time() if conf <= 0 else timestamp)
-                for amount in [value, balance]:
-                    text = fx.historical_value_str(amount, date)
-                    entry.append(text)
+            run_hook('history_tab_update', h_item, entry)
             item = QTreeWidgetItem(entry)
             item.setIcon(0, icon)
             for i in range(len(entry)):
@@ -143,7 +133,7 @@ class HistoryList(MyTreeWidget):
         height, conf, timestamp = self.wallet.get_tx_height(tx_hash)
         tx = self.wallet.transactions.get(tx_hash)
         is_relevant, is_mine, v, fee = self.wallet.get_wallet_delta(tx)
-        is_unconfirmed = height <= 0
+        rbf = is_mine and height <=0 and tx and not tx.is_final()
         menu = QMenu()
 
         menu.addAction(_("Copy %s")%column_title, lambda: self.parent.app.clipboard().setText(column_data))
@@ -151,14 +141,8 @@ class HistoryList(MyTreeWidget):
             menu.addAction(_("Edit %s")%column_title, lambda: self.editItem(item, column))
 
         menu.addAction(_("Details"), lambda: self.parent.show_transaction(tx))
-        if is_unconfirmed and tx:
-            rbf = is_mine and not tx.is_final()
-            if rbf:
-                menu.addAction(_("Increase fee"), lambda: self.parent.bump_fee_dialog(tx))
-            else:
-                child_tx = self.wallet.cpfp(tx, 0)
-                if child_tx:
-                    menu.addAction(_("Child pays for parent"), lambda: self.parent.cpfp(tx, child_tx))
+        if rbf:
+            menu.addAction(_("Increase fee"), lambda: self.parent.bump_fee_dialog(tx))
         if tx_URL:
             menu.addAction(_("View on block explorer"), lambda: webbrowser.open(tx_URL))
         menu.exec_(self.viewport().mapToGlobal(position))

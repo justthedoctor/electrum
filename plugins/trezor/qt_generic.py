@@ -242,8 +242,7 @@ class QtPlugin(QtPluginBase):
             else:
                 msg = _("Enter the master private key beginning with xprv:")
                 def set_enabled():
-                    from electrum.keystore import is_xprv
-                    wizard.next_button.setEnabled(is_xprv(clean_text(text)))
+                    wizard.next_button.setEnabled(Wallet.is_xprv(clean_text(text)))
                 text.textChanged.connect(set_enabled)
                 next_enabled = False
 
@@ -402,7 +401,6 @@ class SettingsDialog(WindowModalDialog):
             invoke_client('set_pin', remove=True)
 
         def wipe_device():
-            wallet = window.wallet
             if wallet and sum(wallet.get_balance()):
                 title = _("Confirm Device Wipe")
                 msg = _("Are you SURE you want to wipe the device?\n"

@@ -158,6 +158,9 @@ class Plugin(TrustedCoinPlugin):
 
         i = 1
 
+        if 10 not in price_per_tx:
+            price_per_tx[10] = 10 * price_per_tx.get(1)
+
         for k, v in sorted(price_per_tx.items()):
             if k == 1:
                 continue
@@ -189,7 +192,7 @@ class Plugin(TrustedCoinPlugin):
         if window.pluginsdialog:
             window.pluginsdialog.close()
         wallet = window.wallet
-        uri = "bitcoin:" + wallet.billing_info['billing_address'] + "?message=TrustedCoin %d Prepaid Transactions&amount="%k + str(Decimal(v)/100000000)
+        uri = "pandacoin:" + wallet.billing_info['billing_address'] + "?message=TrustedCoin %d Prepaid Transactions&amount="%k + str(Decimal(v)/100000000)
         wallet.is_billing = True
         window.pay_to_URI(uri)
         window.payto_e.setFrozen(True)

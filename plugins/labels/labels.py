@@ -5,6 +5,7 @@ import json
 import sys
 import traceback
 
+import aes
 import base64
 
 import electrum
@@ -18,7 +19,7 @@ class LabelsPlugin(BasePlugin):
 
     def __init__(self, parent, config, name):
         BasePlugin.__init__(self, parent, config, name)
-        self.target_host = 'labels.bauerj.eu'
+        self.target_host = 'sync.bytesized-hosting.com:9090'
         self.wallets = {}
 
     def encode(self, wallet, msg):

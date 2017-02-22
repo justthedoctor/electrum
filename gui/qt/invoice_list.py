@@ -31,7 +31,6 @@ from electrum.plugins import run_hook
 
 
 class InvoiceList(MyTreeWidget):
-    filter_columns = [0, 1, 2, 3]  # Date, Requestor, Description, Amount
 
     def __init__(self, parent):
         MyTreeWidget.__init__(self, parent, self.create_menu, [_('Expires'), _('Requestor'), _('Description'), _('Amount'), _('Status')], 2)

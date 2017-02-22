@@ -27,7 +27,6 @@
 
 import os
 import util
-import bitcoin
 from bitcoin import *
 
 MAX_TARGET = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
@@ -37,6 +36,7 @@ class Blockchain(util.PrintError):
     def __init__(self, config, network):
         self.config = config
         self.network = network
+        self.headers_url = "http://server1.cryptodepot.org/pnd/blockchain_headers"
         self.local_height = 0
         self.set_local_height()
 
@@ -44,19 +44,13 @@ class Blockchain(util.PrintError):
         return self.local_height
 
     def init(self):
-        import threading
-        if os.path.exists(self.path()):
-            self.downloading_headers = False
-            return
-        self.downloading_headers = True
-        t = threading.Thread(target = self.init_headers_file)
-        t.daemon = True
-        t.start()
+        self.init_headers_file()
+        self.set_local_height()
+        self.print_error("%d blocks" % self.local_height)
 
     def verify_header(self, header, prev_header, bits, target):
         prev_hash = self.hash_header(prev_header)
         assert prev_hash == header.get('prev_block_hash'), "prev hash mismatch: %s vs %s" % (prev_hash, header.get('prev_block_hash'))
-        if bitcoin.TESTNET: return
         assert bits == header.get('bits'), "bits mismatch: %s vs %s" % (bits, header.get('bits'))
         _hash = self.hash_header(header)
         assert int('0x' + _hash, 16) <= target, "insufficient proof of work: %s vs target %s" % (int('0x' + _hash, 16), target)
@@ -112,19 +106,18 @@ class Blockchain(util.PrintError):
 
     def init_headers_file(self):
         filename = self.path()
+        if os.path.exists(filename):
+            return
         try:
             import urllib, socket
             socket.setdefaulttimeout(30)
-            self.print_error("downloading ", bitcoin.HEADERS_URL)
-            urllib.urlretrieve(bitcoin.HEADERS_URL, filename + '.tmp')
+            self.print_error("downloading ", self.headers_url)
+            urllib.urlretrieve(self.headers_url, filename + '.tmp')
             os.rename(filename + '.tmp', filename)
             self.print_error("done.")
         except Exception:
             self.print_error("download failed. creating file", filename)
             open(filename, 'wb+').close()
-        self.downloading_headers = False
-        self.set_local_height()
-        self.print_error("%d blocks" % self.local_height)
 
     def save_chunk(self, index, chunk):
         filename = self.path()

@@ -29,8 +29,8 @@ from unicodedata import normalize
 
 from version import *
 import bitcoin
-from bitcoin import pw_encode, pw_decode, bip32_root, bip32_private_derivation, bip32_public_derivation, bip32_private_key, deserialize_xprv, deserialize_xpub
-from bitcoin import public_key_from_private_key, public_key_to_p2pkh
+from bitcoin import pw_encode, pw_decode, bip32_root, bip32_private_derivation, bip32_public_derivation, bip32_private_key, deserialize_xkey
+from bitcoin import public_key_from_private_key, public_key_to_bc_address
 from bitcoin import *
 
 from bitcoin import is_old_seed, is_new_seed, is_seed
@@ -74,9 +74,6 @@ class KeyStore(PrintError):
         if self.is_watching_only():
             return False
         return bool(self.get_tx_derivations(tx))
-
-    def is_segwit(self):
-        return False
 
 
 class Software_KeyStore(KeyStore):
@@ -169,7 +166,7 @@ class Imported_KeyStore(Software_KeyStore):
             # fixme: this assumes p2pkh
             _, addr = xpubkey_to_address(x_pubkey)
             for pubkey in self.keypairs.keys():
-                if public_key_to_p2pkh(pubkey.decode('hex')) == addr:
+                if public_key_to_bc_address(pubkey.decode('hex')) == addr:
                     return pubkey
 
     def update_password(self, old_password, new_password):
@@ -221,6 +218,7 @@ class Deterministic_KeyStore(Software_KeyStore):
         return pw_decode(self.passphrase, password) if self.passphrase else ''
 
 
+
 class Xpub:
 
     def __init__(self):
@@ -243,7 +241,7 @@ class Xpub:
 
     @classmethod
     def get_pubkey_from_xpub(self, xpub, sequence):
-        _, _, _, _, c, cK = deserialize_xpub(xpub)
+        _, _, _, c, cK = deserialize_xkey(xpub)
         for i in sequence:
             cK, c = CKD_pub(cK, c, i)
         return cK.encode('hex')
@@ -300,7 +298,7 @@ class BIP32_KeyStore(Deterministic_KeyStore, Xpub):
 
     def check_password(self, password):
         xprv = pw_decode(self.xprv, password)
-        if deserialize_xprv(xprv)[4] != deserialize_xpub(self.xpub)[4]:
+        if deserialize_xkey(xprv)[3] != deserialize_xkey(self.xpub)[3]:
             raise InvalidPassword()
 
     def update_password(self, old_password, new_password):
@@ -324,19 +322,17 @@ class BIP32_KeyStore(Deterministic_KeyStore, Xpub):
         self.xprv = xprv
         self.xpub = bitcoin.xpub_from_xprv(xprv)
 
-    def add_xprv_from_seed(self, bip32_seed, xtype, derivation):
-        xprv, xpub = bip32_root(bip32_seed, xtype)
+    def add_xprv_from_seed(self, bip32_seed, derivation):
+        xprv, xpub = bip32_root(bip32_seed)
         xprv, xpub = bip32_private_derivation(xprv, "m/", derivation)
         self.add_xprv(xprv)
 
     def get_private_key(self, sequence, password):
         xprv = self.get_master_private_key(password)
-        _, _, _, _, c, k = deserialize_xprv(xprv)
+        _, _, _, c, k = deserialize_xkey(xprv)
         pk = bip32_private_key(sequence, k, c)
         return pk
 
-    def is_segwit(self):
-        return bool(deserialize_xpub(self.xpub)[0])
 
 
 class Old_KeyStore(Deterministic_KeyStore):
@@ -402,7 +398,7 @@ class Old_KeyStore(Deterministic_KeyStore):
 
     def get_address(self, for_change, n):
         pubkey = self.get_pubkey(for_change, n)
-        address = public_key_to_p2pkh(pubkey.decode('hex'))
+        address = public_key_to_bc_address(pubkey.decode('hex'))
         return address
 
     @classmethod
@@ -567,11 +563,6 @@ def parse_xpubkey(x_pubkey):
     return BIP32_KeyStore.parse_xpubkey(x_pubkey)
 
 def xpubkey_to_address(x_pubkey):
-    if x_pubkey[0:2] == 'fd':
-        addrtype = ord(x_pubkey[2:4].decode('hex'))
-        hash160 = x_pubkey[4:].decode('hex')
-        address = bitcoin.hash_160_to_bc_address(hash160, addrtype)
-        return x_pubkey, address
     if x_pubkey[0:2] in ['02','03','04']:
         pubkey = x_pubkey
     elif x_pubkey[0:2] == 'ff':
@@ -580,10 +571,15 @@ def xpubkey_to_address(x_pubkey):
     elif x_pubkey[0:2] == 'fe':
         mpk, s = Old_KeyStore.parse_xpubkey(x_pubkey)
         pubkey = Old_KeyStore.get_pubkey_from_mpk(mpk, s[0], s[1])
+    elif x_pubkey[0:2] == 'fd':
+        addrtype = ord(x_pubkey[2:4].decode('hex'))
+        hash160 = x_pubkey[4:].decode('hex')
+        pubkey = None
+        address = hash_160_to_bc_address(hash160, addrtype)
     else:
-        raise BaseException("Cannot parse pubkey")
+        raise BaseException("Cannnot parse pubkey")
     if pubkey:
-        address = public_key_to_p2pkh(pubkey.decode('hex'))
+        address = public_key_to_bc_address(pubkey.decode('hex'))
     return pubkey, address
 
 
@@ -626,6 +622,24 @@ def is_old_mpk(mpk):
         return False
     return len(mpk) == 128
 
+def is_xpub(text):
+    if text[0:4] != 'xpub':
+        return False
+    try:
+        deserialize_xkey(text)
+        return True
+    except:
+        return False
+
+def is_xprv(text):
+    if text[0:4] != 'xprv':
+        return False
+    try:
+        deserialize_xkey(text)
+        return True
+    except:
+        return False
+
 def is_address_list(text):
     parts = text.split()
     return bool(parts) and all(bitcoin.is_address(x) for x in parts)
@@ -650,17 +664,15 @@ def bip44_derivation(account_id):
     return "m/44'/0'/%d'"% int(account_id)
 
 def from_seed(seed, passphrase):
-    t = seed_type(seed)
-    if t == 'old':
+    if is_old_seed(seed):
         keystore = Old_KeyStore({})
         keystore.add_seed(seed)
-    elif t in ['standard', 'segwit']:
+    elif is_new_seed(seed):
         keystore = BIP32_KeyStore({})
         keystore.add_seed(seed)
         keystore.passphrase = passphrase
         bip32_seed = Mnemonic.mnemonic_to_seed(seed, passphrase)
-        xtype = 0 if t == 'standard' else 1
-        keystore.add_xprv_from_seed(bip32_seed, xtype, "m/")
+        keystore.add_xprv_from_seed(bip32_seed, "m/")
     return keystore
 
 def from_private_key_list(text):

@@ -98,8 +98,6 @@ class PayToEdit(ScanQRTextEdit):
         return script
 
     def parse_amount(self, x):
-        if x.strip() == '!':
-            return '!'
         p = pow(10, self.amount_edit.decimal_point())
         return int(p * Decimal(x.strip()))
 
@@ -121,7 +119,7 @@ class PayToEdit(ScanQRTextEdit):
         self.payto_address = None
         if len(lines) == 1:
             data = lines[0]
-            if data.startswith("bitcoin:"):
+            if data.startswith("Pandacoin:"):
                 self.scan_f(data)
                 return
             try:
@@ -132,7 +130,6 @@ class PayToEdit(ScanQRTextEdit):
                 self.win.lock_amount(False)
                 return
 
-        is_max = False
         for i, line in enumerate(lines):
             try:
                 _type, to_address, amount = self.parse_address_and_amount(line)
@@ -141,20 +138,12 @@ class PayToEdit(ScanQRTextEdit):
                 continue
 
             outputs.append((_type, to_address, amount))
-            if amount == '!':
-                is_max = True
-            else:
-                total += amount
+            total += amount
 
-        self.win.is_max = is_max
         self.outputs = outputs
         self.payto_address = None
-
-        if self.win.is_max:
-            self.win.do_update_fee()
-        else:
-            self.amount_edit.setAmount(total if outputs else None)
-            self.win.lock_amount(total or len(lines)>1)
+        self.amount_edit.setAmount(total if outputs else None)
+        self.win.lock_amount(total or len(lines)>1)
 
     def get_errors(self):
         return self.errors
@@ -162,13 +151,12 @@ class PayToEdit(ScanQRTextEdit):
     def get_recipient(self):
         return self.payto_address
 
-    def get_outputs(self, is_max):
+    def get_outputs(self):
         if self.payto_address:
-            if is_max:
-                amount = '!'
-            else:
+            try:
                 amount = self.amount_edit.get_amount()
-
+            except:
+                amount = None
             _type, addr = self.payto_address
             self.outputs = [(_type, addr, amount)]
 
@@ -259,7 +247,7 @@ class PayToEdit(ScanQRTextEdit):
 
     def qr_input(self):
         data = super(PayToEdit,self).qr_input()
-        if data.startswith("bitcoin:"):
+        if data.startswith("Pandacoin:"):
             self.scan_f(data)
             # TODO: update fee
 

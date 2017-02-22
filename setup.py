@@ -36,7 +36,7 @@ setup(
     name="Electrum",
     version=version.ELECTRUM_VERSION,
     install_requires=[
-        'pyaes',
+        'slowaes>=0.1a1',
         'ecdsa>=0.9',
         'pbkdf2',
         'requests',
@@ -53,13 +53,14 @@ setup(
         'electrum_plugins.audio_modem',
         'electrum_plugins.cosigner_pool',
         'electrum_plugins.email_requests',
+        'electrum_plugins.exchange_rate',
         'electrum_plugins.greenaddress_instant',
         'electrum_plugins.hw_wallet',
         'electrum_plugins.keepkey',
         'electrum_plugins.labels',
         'electrum_plugins.ledger',
+        'electrum_plugins.plot',
         'electrum_plugins.trezor',
-        'electrum_plugins.digitalbitbox',
         'electrum_plugins.trustedcoin',
         'electrum_plugins.virtualkeyboard',
     ],
@@ -70,7 +71,6 @@ setup(
     },
     package_data={
         'electrum': [
-            'currencies.json',
             'www/index.html',
             'wordlist/*.txt',
             'locale/*/LC_MESSAGES/electrum.mo',

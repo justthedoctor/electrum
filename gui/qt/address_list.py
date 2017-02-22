@@ -34,7 +34,6 @@ from electrum.bitcoin import is_address
 
 
 class AddressList(MyTreeWidget):
-    filter_columns = [0, 1, 2]  # Address, Label, Balance
 
     def __init__(self, parent=None):
         MyTreeWidget.__init__(self, parent, self.create_menu, [ _('Address'), _('Label'), _('Balance'), _('Tx')], 1)
@@ -85,6 +84,15 @@ class AddressList(MyTreeWidget):
                         seq_item.addChild(address_item)
                     if address == current_address:
                         self.setCurrentItem(address_item)
+                    # add utxos
+                    utxos = self.wallet.get_addr_utxo(address)
+                    for x in utxos:
+                        h = x.get('prevout_hash')
+                        s = h + ":%d"%x.get('prevout_n')
+                        label = self.wallet.get_label(h)
+                        utxo_item = QTreeWidgetItem([s, label, self.parent.format_amount(x['value'])])
+                        utxo_item.setFont(0, QFont(MONOSPACE_FONT))
+                        address_item.addChild(utxo_item)
 
     def create_menu(self, position):
         from electrum.wallet import Multisig_Wallet
@@ -102,7 +110,11 @@ class AddressList(MyTreeWidget):
                 return
             addr = addrs[0]
             if not is_address(addr):
-                item.setExpanded(not item.isExpanded())
+                k = str(item.data(0,32).toString())
+                if k:
+                    self.create_account_menu(position, k, item)
+                else:
+                    item.setExpanded(not item.isExpanded())
                 return
 
         menu = QMenu()
@@ -124,6 +136,16 @@ class AddressList(MyTreeWidget):
             addr_URL = block_explorer_URL(self.config, 'addr', addr)
             if addr_URL:
                 menu.addAction(_("View on block explorer"), lambda: webbrowser.open(addr_URL))
+
+        if any(not self.wallet.is_frozen(addr) for addr in addrs):
+            menu.addAction(_("Freeze"), lambda: self.parent.set_frozen_state(addrs, True))
+        if any(self.wallet.is_frozen(addr) for addr in addrs):
+            menu.addAction(_("Unfreeze"), lambda: self.parent.set_frozen_state(addrs, False))
+
+        def can_send(addr):
+            return not self.wallet.is_frozen(addr) and sum(self.wallet.get_addr_balance(addr)[:2])
+        if any(can_send(addr) for addr in addrs):
+            menu.addAction(_("Send From"), lambda: self.parent.send_from_addresses(addrs))
 
         run_hook('receive_menu', menu, addrs, self.wallet)
         menu.exec_(self.viewport().mapToGlobal(position))

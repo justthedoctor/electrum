@@ -82,7 +82,7 @@ class ElectrumWindow(App):
         self.send_screen.set_URI(uri)
 
     def on_new_intent(self, intent):
-        if intent.getScheme() != 'bitcoin':
+        if intent.getScheme() != 'pandacoin':
             return
         uri = intent.getDataString()
         self.set_URI(uri)
@@ -92,17 +92,16 @@ class ElectrumWindow(App):
         _.switch_lang(language)
 
     def on_quotes(self, d):
-        Logger.info("on_quotes")
-        if self.history_screen:
-            Clock.schedule_once(lambda dt: self.history_screen.update())
+        #Logger.info("on_quotes")
+        pass
 
     def on_history(self, d):
-        Logger.info("on_history")
+        #Logger.info("on_history")
         if self.history_screen:
             Clock.schedule_once(lambda dt: self.history_screen.update())
 
     def _get_bu(self):
-        return self.electrum_config.get('base_unit', 'mBTC')
+        return self.electrum_config.get('base_unit', 'PND')
 
     def _set_bu(self, value):
         assert value in base_units.keys()
@@ -125,7 +124,7 @@ class ElectrumWindow(App):
     def btc_to_fiat(self, amount_str):
         if not amount_str:
             return ''
-        rate = self.fx.exchange_rate()
+        rate = run_hook('exchange_rate')
         if not rate:
             return ''
         fiat_amount = self.get_amount(amount_str + ' ' + self.base_unit) * rate / pow(10, 8)
@@ -134,7 +133,7 @@ class ElectrumWindow(App):
     def fiat_to_btc(self, fiat_amount):
         if not fiat_amount:
             return ''
-        rate = self.fx.exchange_rate()
+        rate = run_hook('exchange_rate')
         if not rate:
             return ''
         satoshis = int(pow(10,8) * Decimal(fiat_amount) / Decimal(rate))
@@ -199,7 +198,6 @@ class ElectrumWindow(App):
 
         self.gui_object = kwargs.get('gui_object', None)
         self.daemon = self.gui_object.daemon
-        self.fx = self.daemon.fx
 
         self.contacts = Contacts(self.electrum_config)
         self.invoices = InvoiceStore(self.electrum_config)
@@ -241,7 +239,7 @@ class ElectrumWindow(App):
         if is_address(data):
             self.set_URI(data)
             return
-        if data.startswith('bitcoin:'):
+        if data.startswith('pandacoin:'):
             self.set_URI(data)
             return
         # try to decode transaction
@@ -388,15 +386,9 @@ class ElectrumWindow(App):
         self.load_wallet_by_name(self.electrum_config.get_wallet_path())
         # init plugins
         run_hook('init_kivy', self)
-
-        # fiat currency
-        self.fiat_unit = self.fx.ccy if self.fx.is_enabled() else ''
-        self.network.register_callback(self.on_quotes, ['on_quotes'])
-        self.network.register_callback(self.on_history, ['on_history'])
-
         # default tab
         self.switch_to('history')
-        # bind intent for bitcoin: URI scheme
+        # bind intent for pandacoin: URI scheme
         if platform == 'android':
             from android import activity
             from jnius import autoclass
@@ -580,9 +572,7 @@ class ElectrumWindow(App):
     def get_max_amount(self):
         inputs = self.wallet.get_spendable_coins(None)
         addr = str(self.send_screen.screen.address) or self.wallet.dummy_address()
-        outputs = [(TYPE_ADDRESS, addr, '!')]
-        tx = self.wallet.make_unsigned_transaction(inputs, outputs, self.electrum_config)
-        amount = tx.output_value()
+        amount, fee = self.wallet.get_max_amount(self.electrum_config, inputs, (TYPE_ADDRESS, addr), None)
         return format_satoshis_plain(amount, self.decimal_point())
 
     def format_amount(self, x, is_diff=False, whitespaces=False):
