@@ -38,12 +38,18 @@ from decimal import Decimal
 import util
 from util import print_msg, format_satoshis, print_stderr
 import bitcoin
-from bitcoin import is_address, hash_160_to_bc_address, hash_160, COIN, TYPE_ADDRESS
+from bitcoin import is_address, hash_160, COIN, TYPE_ADDRESS
 from transaction import Transaction
 import paymentrequest
 from paymentrequest import PR_PAID, PR_UNPAID, PR_UNKNOWN, PR_EXPIRED
 import contacts
 known_commands = {}
+
+
+def satoshis(amount):
+    # satoshi conversion must not be performed by the parser
+    return int(COIN*Decimal(amount)) if amount not in ['!', None] else amount
+
 
 class Command:
 
@@ -143,10 +149,10 @@ class Commands:
         return True
 
     @command('')
-    def make_seed(self, nbits=128, entropy=1, language=None):
+    def make_seed(self, nbits=132, entropy=1, language=None):
         """Create a seed"""
         from mnemonic import Mnemonic
-        s = Mnemonic(language).make_seed(nbits, custom_entropy=entropy)
+        s = Mnemonic(language).make_seed('standard', nbits, custom_entropy=entropy)
         return s.encode('utf8')
 
     @command('')
@@ -166,7 +172,7 @@ class Commands:
     def listunspent(self):
         """List unspent outputs. Returns the list of unspent transaction
         outputs in your wallet."""
-        l = copy.deepcopy(self.wallet.get_spendable_coins(exclude_frozen = False))
+        l = copy.deepcopy(self.wallet.get_utxos(exclude_frozen=False))
         for i in l:
             v = i["value"]
             i["value"] = float(v)/COIN if v is not None else None
@@ -216,7 +222,7 @@ class Commands:
             else:
                 raise BaseException('No redeem script')
 
-        outputs = map(lambda x: (TYPE_ADDRESS, x[0], int(COIN*Decimal(x[1]))), outputs)
+        outputs = map(lambda x: (TYPE_ADDRESS, x[0], satoshis(x[1])), outputs)
         tx = Transaction.from_io(inputs, outputs, locktime=locktime)
         tx.sign(keypairs)
         return tx.as_dict()
@@ -251,7 +257,7 @@ class Commands:
         """Create multisig address"""
         assert isinstance(pubkeys, list), (type(num), type(pubkeys))
         redeem_script = Transaction.multisig_script(pubkeys, num)
-        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), 5)
+        address = bitcoin.hash160_to_p2sh(hash_160(redeem_script.decode('hex')))
         return {'address':address, 'redeemScript':redeem_script}
 
     @command('w')
@@ -378,6 +384,7 @@ class Commands:
         """Sweep private keys. Returns a transaction that spends UTXOs from
         privkey to a destination address. The transaction is not
         broadcasted."""
+        tx_fee = satoshis(tx_fee)
         privkeys = privkey if type(privkey) is list else [privkey]
         self.nocheck = nocheck
         dest = self._resolver(destination)
@@ -404,12 +411,7 @@ class Commands:
         final_outputs = []
         for address, amount in outputs:
             address = self._resolver(address)
-            if amount == '!':
-                assert len(outputs) == 1
-                inputs = self.wallet.get_spendable_coins(domain)
-                amount, fee = self.wallet.get_max_amount(self.config, inputs, (TYPE_ADDRESS, address), fee)
-            else:
-                amount = int(COIN*Decimal(amount))
+            amount = satoshis(amount)
             final_outputs.append((TYPE_ADDRESS, address, amount))
 
         coins = self.wallet.get_spendable_coins(domain)
@@ -423,6 +425,7 @@ class Commands:
     @command('wp')
     def payto(self, destination, amount, tx_fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, rbf=False):
         """Create a transaction. """
+        tx_fee = satoshis(tx_fee)
         domain = [from_addr] if from_addr else None
         tx = self._mktx([(destination, amount)], tx_fee, change_addr, domain, nocheck, unsigned, rbf)
         return tx.as_dict()
@@ -430,6 +433,7 @@ class Commands:
     @command('wp')
     def paytomany(self, outputs, tx_fee=None, from_addr=None, change_addr=None, nocheck=False, unsigned=False, rbf=False):
         """Create a multi-output transaction. """
+        tx_fee = to_satoshis(tx_fee)
         domain = [from_addr] if from_addr else None
         tx = self._mktx(outputs, tx_fee, change_addr, domain, nocheck, unsigned, rbf)
         return tx.as_dict()
@@ -534,7 +538,7 @@ class Commands:
             PR_PAID: 'Paid',
             PR_EXPIRED: 'Expired',
         }
-        out['amount (PND)'] = format_satoshis(out.get('amount'))
+        out['amount (BTC)'] = format_satoshis(out.get('amount'))
         out['status'] = pr_str[out.get('status', PR_UNKNOWN)]
         return out
 
@@ -576,7 +580,7 @@ class Commands:
                 addr = self.wallet.create_new_address(False)
             else:
                 return False
-        amount = int(COIN*Decimal(amount))
+        amount = satoshis(amount)
         expiration = int(expiration) if expiration else None
         req = self.wallet.make_payment_request(addr, amount, memo, expiration)
         self.wallet.add_payment_request(req, self.config)
@@ -642,8 +646,8 @@ param_descriptions = {
     'pubkey': 'Public key',
     'message': 'Clear text message. Use quotes if it contains spaces.',
     'encrypted': 'Encrypted message',
-    'amount': 'Amount to be sent (in PND). Type \'!\' to send the maximum available.',
-    'requested_amount': 'Requested amount (in PND).',
+    'amount': 'Amount to be sent (in BTC). Type \'!\' to send the maximum available.',
+    'requested_amount': 'Requested amount (in BTC).',
     'outputs': 'list of ["address", amount]',
 }
 
@@ -658,7 +662,7 @@ command_options = {
     'show_labels': ("-l", "--labels",      "Show the labels of listed addresses"),
     'nocheck':     (None, "--nocheck",     "Do not verify aliases"),
     'imax':        (None, "--imax",        "Maximum number of inputs"),
-    'tx_fee':      ("-f", "--fee",         "Transaction fee (in PND)"),
+    'tx_fee':      ("-f", "--fee",         "Transaction fee (in BTC)"),
     'from_addr':   ("-F", "--from",        "Source address. If it isn't in the wallet, it will ask for the private key unless supplied in the format public_key:private_key. It's not saved in the wallet."),
     'change_addr': ("-c", "--change",      "Change address. Default is a spare address, or the source address if it's not in the wallet"),
     'nbits':       (None, "--nbits",       "Number of bits of entropy"),
@@ -692,8 +696,8 @@ arg_types = {
     'jsontx': json_loads,
     'inputs': json_loads,
     'outputs': json_loads,
-    'tx_fee': lambda x: int(COIN*Decimal(x)) if x is not None else None,
-    'amount': lambda x: str(Decimal(x)) if x!='!' else '!',
+    'tx_fee': lambda x: str(Decimal(x)) if x is not None else None,
+    'amount': lambda x: str(Decimal(x)) if x != '!' else '!',
 }
 
 config_variables = {
@@ -702,10 +706,10 @@ config_variables = {
         'requests_dir': 'directory where a bip70 file will be written.',
         'ssl_privkey': 'Path to your SSL private key, needed to sign the request.',
         'ssl_chain': 'Chain of SSL certificates, needed for signed requests. Put your certificate at the top and the root CA at the end',
-        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of pandacoin: URIs. Example: \"(\'file:///var/www/\',\'https://electrum.org/\')\"',
+        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of bitcoin: URIs. Example: \"(\'file:///var/www/\',\'https://electrum.org/\')\"',
     },
     'listrequests':{
-        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of pandacoin: URIs. Example: \"(\'file:///var/www/\',\'https://electrum.org/\')\"',
+        'url_rewrite': 'Parameters passed to str.replace(), in order to create the r= part of bitcoin: URIs. Example: \"(\'file:///var/www/\',\'https://electrum.org/\')\"',
     }
 }
 
@@ -733,46 +737,74 @@ def set_default_subparser(self, name, args=None):
 argparse.ArgumentParser.set_default_subparser = set_default_subparser
 
 
+# workaround https://bugs.python.org/issue23058
+# see https://github.com/nickstenning/honcho/pull/121
+
+def subparser_call(self, parser, namespace, values, option_string=None):
+    from argparse import ArgumentError, SUPPRESS, _UNRECOGNIZED_ARGS_ATTR
+    parser_name = values[0]
+    arg_strings = values[1:]
+    # set the parser name if requested
+    if self.dest is not SUPPRESS:
+        setattr(namespace, self.dest, parser_name)
+    # select the parser
+    try:
+        parser = self._name_parser_map[parser_name]
+    except KeyError:
+        tup = parser_name, ', '.join(self._name_parser_map)
+        msg = _('unknown parser %r (choices: %s)') % tup
+        raise ArgumentError(self, msg)
+    # parse all the remaining options into the namespace
+    # store any unrecognized options on the object, so that the top
+    # level parser can decide what to do with them
+    namespace, arg_strings = parser.parse_known_args(arg_strings, namespace)
+    if arg_strings:
+        vars(namespace).setdefault(_UNRECOGNIZED_ARGS_ATTR, [])
+        getattr(namespace, _UNRECOGNIZED_ARGS_ATTR).extend(arg_strings)
+
+argparse._SubParsersAction.__call__ = subparser_call
+
 
 def add_network_options(parser):
     parser.add_argument("-1", "--oneserver", action="store_true", dest="oneserver", default=False, help="connect to one server only")
     parser.add_argument("-s", "--server", dest="server", default=None, help="set server host:port:protocol, where protocol is either t (tcp) or s (ssl)")
     parser.add_argument("-p", "--proxy", dest="proxy", default=None, help="set proxy [type:]host[:port], where type is socks4,socks5 or http")
 
-from util import profiler
-
-@profiler
-def get_parser():
-    # parent parser, because set_default_subparser removes global options
-    parent_parser = argparse.ArgumentParser('parent', add_help=False)
-    group = parent_parser.add_argument_group('global options')
+def add_global_options(parser):
+    group = parser.add_argument_group('global options')
     group.add_argument("-v", "--verbose", action="store_true", dest="verbose", default=False, help="Show debugging information")
     group.add_argument("-D", "--dir", dest="electrum_path", help="electrum directory")
     group.add_argument("-P", "--portable", action="store_true", dest="portable", default=False, help="Use local 'electrum_data' directory")
     group.add_argument("-w", "--wallet", dest="wallet_path", help="wallet path")
+    group.add_argument("--testnet", action="store_true", dest="testnet", default=False, help="Use Testnet")
+    group.add_argument("--segwit", action="store_true", dest="segwit", default=False, help="The Wizard will create Segwit seed phrases (Testnet only).")
+
+def get_parser():
     # create main parser
     parser = argparse.ArgumentParser(
-        parents=[parent_parser],
         epilog="Run 'electrum help <command>' to see the help for a command")
+    add_global_options(parser)
     subparsers = parser.add_subparsers(dest='cmd', metavar='<command>')
     # gui
-    parser_gui = subparsers.add_parser('gui', parents=[parent_parser], description="Run Electrum's Graphical User Interface.", help="Run GUI (default)")
+    parser_gui = subparsers.add_parser('gui', description="Run Electrum's Graphical User Interface.", help="Run GUI (default)")
     parser_gui.add_argument("url", nargs='?', default=None, help="bitcoin URI (or bip70 file)")
-    #parser_gui.set_defaults(func=run_gui)
     parser_gui.add_argument("-g", "--gui", dest="gui", help="select graphical user interface", choices=['qt', 'kivy', 'text', 'stdio'])
     parser_gui.add_argument("-o", "--offline", action="store_true", dest="offline", default=False, help="Run offline")
     parser_gui.add_argument("-m", action="store_true", dest="hide_gui", default=False, help="hide GUI on startup")
     parser_gui.add_argument("-L", "--lang", dest="language", default=None, help="default language used in GUI")
     add_network_options(parser_gui)
+    add_global_options(parser_gui)
     # daemon
-    parser_daemon = subparsers.add_parser('daemon', parents=[parent_parser], help="Run Daemon")
-    parser_daemon.add_argument("subcommand", choices=['start', 'status', 'stop'])
+    parser_daemon = subparsers.add_parser('daemon', help="Run Daemon")
+    parser_daemon.add_argument("subcommand", choices=['start', 'status', 'stop'], nargs='?')
     #parser_daemon.set_defaults(func=run_daemon)
     add_network_options(parser_daemon)
+    add_global_options(parser_daemon)
     # commands
     for cmdname in sorted(known_commands.keys()):
         cmd = known_commands[cmdname]
-        p = subparsers.add_parser(cmdname, parents=[parent_parser], help=cmd.help, description=cmd.description)
+        p = subparsers.add_parser(cmdname, help=cmd.help, description=cmd.description)
+        add_global_options(p)
         if cmdname == 'restore':
             p.add_argument("-o", "--offline", action="store_true", dest="offline", default=False, help="Run offline")
         #p.set_defaults(func=run_cmdline)

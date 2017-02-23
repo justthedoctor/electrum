@@ -7,8 +7,8 @@ from electrum.util import base_units
 from electrum.i18n import languages
 from electrum_gui.kivy.i18n import _
 from electrum.plugins import run_hook
-from electrum.bitcoin import RECOMMENDED_FEE
 from electrum import coinchooser
+from electrum.util import fee_levels
 
 from choice_dialog import ChoiceDialog
 
@@ -75,13 +75,13 @@ Builder.load_string('''
                 SettingsItem:
                     bu: app.base_unit
                     title: _('Denomination') + ': ' + self.bu
-                    description: _("Base unit for Pandacoin amounts.")
+                    description: _("Base unit for Bitcoin amounts.")
                     action: partial(root.unit_dialog, self)
                 CardSeparator
                 SettingsItem:
                     status: root.fee_status()
                     title: _('Fees') + ': ' + self.status
-                    description: _("Fees paid to the Pandacoin miners.")
+                    description: _("Fees paid to the Bitcoin miners.")
                     action: partial(root.fee_dialog, self)
                 CardSeparator
                 SettingsItem:
@@ -211,11 +211,9 @@ class SettingsDialog(Factory.Popup):
 
     def fee_status(self):
         if self.config.get('dynamic_fees', True):
-            from electrum.util import fee_levels
             return fee_levels[self.config.get('fee_level', 2)]
         else:
-            F = self.config.get('fee_per_kb', RECOMMENDED_FEE)
-            return self.app.format_amount_and_units(F) + '/kB'
+            return self.app.format_amount_and_units(self.config.fee_per_kb()) + '/kB'
 
     def fee_dialog(self, label, dt):
         if self._fee_dialog is None:
@@ -242,13 +240,13 @@ class SettingsDialog(Factory.Popup):
         self._rbf_dialog.open()
 
     def fx_status(self):
-        p = self.plugins.get('exchange_rate')
-        if p:
-            source = p.exchange.name()
-            ccy = p.get_currency()
+        fx = self.app.fx
+        if fx.is_enabled():
+            source = fx.exchange.name()
+            ccy = fx.get_currency()
             return '%s [%s]' %(ccy, source)
         else:
-            return 'Disabled'
+            return _('None')
 
     def fx_dialog(self, label, dt):
         if self._fx_dialog is None:

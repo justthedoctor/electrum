@@ -6,7 +6,7 @@ from binascii import hexlify, unhexlify
 from functools import partial
 
 from electrum.bitcoin import (bc_address_to_hash_160, xpub_from_pubkey,
-                              public_key_to_bc_address, EncodeBase58Check,
+                              public_key_to_p2pkh, EncodeBase58Check,
                               TYPE_ADDRESS, TYPE_SCRIPT)
 from electrum.i18n import _
 from electrum.plugins import BasePlugin, hook
@@ -29,7 +29,7 @@ class TrezorCompatibleKeyStore(Hardware_KeyStore):
 
     def decrypt_message(self, pubkey, message, password):
         raise RuntimeError(_('Electrum and %s encryption and decryption are currently incompatible') % self.device)
-        address = public_key_to_bc_address(pubkey.decode('hex'))
+        address = public_key_to_p2pkh(pubkey.decode('hex'))
         client = self.get_client()
         address_path = self.address_id(address)
         address_n = client.expand_path(address_path)
@@ -126,6 +126,7 @@ class TrezorCompatiblePlugin(HW_PluginBase):
             msg = (_('Outdated %s firmware for device labelled %s. Please '
                      'download the updated firmware from %s') %
                    (self.device, client.label(), self.firmware_URL))
+            self.print_error(msg)
             handler.show_error(msg)
             return None
 
@@ -319,7 +320,7 @@ class TrezorCompatiblePlugin(HW_PluginBase):
                 has_change = True # no more than one change address
                 addrtype, hash_160 = bc_address_to_hash_160(address)
                 index, xpubs, m = info
-                if addrtype == 55:
+                if addrtype == 0:
                     address_n = self.client_class.expand_path(derivation + "/%d/%d"%index)
                     txoutputtype = self.types.TxOutputType(
                         amount = amount,
@@ -346,7 +347,7 @@ class TrezorCompatiblePlugin(HW_PluginBase):
                     txoutputtype.op_return_data = address[2:]
                 elif _type == TYPE_ADDRESS:
                     addrtype, hash_160 = bc_address_to_hash_160(address)
-                    if addrtype == 55:
+                    if addrtype == 0:
                         txoutputtype.script_type = self.types.PAYTOADDRESS
                     elif addrtype == 5:
                         txoutputtype.script_type = self.types.PAYTOSCRIPTHASH

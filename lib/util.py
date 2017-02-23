@@ -35,7 +35,7 @@ import urllib
 import threading
 from i18n import _
 
-base_units = {'PND':8, 'PND':8, 'PND':8}
+base_units = {'BTC':8, 'mBTC':5, 'uBTC':2}
 fee_levels = [_('Within 25 blocks'), _('Within 10 blocks'), _('Within 5 blocks'), _('Within 2 blocks'), _('In the next block')]
 
 def normalize_version(v):
@@ -243,14 +243,14 @@ def get_headers_path(config):
         return os.path.join(config.path, 'blockchain_headers')
 
 def user_dir():
-    if "HOME" in os.environ:
-        return os.path.join(os.environ["HOME"], ".electrum-pnd")
-    elif "APPDATA" in os.environ:
-        return os.path.join(os.environ["APPDATA"], "Electrum-pnd")
-    elif "LOCALAPPDATA" in os.environ:
-        return os.path.join(os.environ["LOCALAPPDATA"], "Electrum-pnd")
-    elif 'ANDROID_DATA' in os.environ:
+    if 'ANDROID_DATA' in os.environ:
         return android_check_data_dir()
+    elif os.name == 'posix':
+        return os.path.join(os.environ["HOME"], ".electrum")
+    elif "APPDATA" in os.environ:
+        return os.path.join(os.environ["APPDATA"], "Electrum")
+    elif "LOCALAPPDATA" in os.environ:
+        return os.path.join(os.environ["LOCALAPPDATA"], "Electrum")
     else:
         #raise Exception("No home directory found in environment variables.")
         return
@@ -348,16 +348,32 @@ def time_difference(distance_in_time, include_seconds):
         return "over %d years" % (round(distance_in_minutes / 525600))
 
 block_explorer_info = {
-    'cryptoid Chainz': ('https://chainz.cryptoid.info/pnd/',
-                        {'tx': 'tx.dws?', 'addr': 'address.dws?'}),
-    'bchain.info': ('https://bchain.info/PND/',
-                        {'tx': 'tx/', 'addr': 'addr/'}),
-    'system default': ('https://chainz.cryptoid.info/pnd/',
-                        {'tx': 'tx.dws?', 'addr': 'address.dws?'}),
+    'Biteasy.com': ('https://www.biteasy.com/blockchain',
+                        {'tx': 'transactions', 'addr': 'addresses'}),
+    'Bitflyer.jp': ('https://chainflyer.bitflyer.jp',
+                        {'tx': 'Transaction', 'addr': 'Address'}),
+    'Blockchain.info': ('https://blockchain.info',
+                        {'tx': 'tx', 'addr': 'address'}),
+    'blockchainbdgpzk.onion': ('https://blockchainbdgpzk.onion',
+                        {'tx': 'tx', 'addr': 'address'}),
+    'Blockr.io': ('https://btc.blockr.io',
+                        {'tx': 'tx/info', 'addr': 'address/info'}),
+    'Blocktrail.com': ('https://www.blocktrail.com/BTC',
+                        {'tx': 'tx', 'addr': 'address'}),
+    'BTC.com': ('https://chain.btc.com',
+                        {'tx': 'tx', 'addr': 'address'}),
+    'Chain.so': ('https://www.chain.so',
+                        {'tx': 'tx/BTC', 'addr': 'address/BTC'}),
+    'Insight.is': ('https://insight.bitpay.com',
+                        {'tx': 'tx', 'addr': 'address'}),
+    'TradeBlock.com': ('https://tradeblock.com/blockchain',
+                        {'tx': 'tx', 'addr': 'address'}),
+    'system default': ('blockchain:',
+                        {'tx': 'tx', 'addr': 'address'}),
 }
 
 def block_explorer(config):
-    return config.get('block_explorer', 'cryptoid Chainz')
+    return config.get('block_explorer', 'Blockchain.info')
 
 def block_explorer_tuple(config):
     return block_explorer_info.get(block_explorer(config))
@@ -370,7 +386,7 @@ def block_explorer_URL(config, kind, item):
     if not kind_str:
         return
     url_parts = [be_tuple[0], kind_str, item]
-    return "".join(url_parts)
+    return "/".join(url_parts)
 
 # URL decode
 #_ud = re.compile('%([0-9a-hA-H]{2})', re.MULTILINE)
@@ -382,12 +398,12 @@ def parse_URI(uri, on_pr=None):
 
     if ':' not in uri:
         if not bitcoin.is_address(uri):
-            raise BaseException("Not a pandacoin address")
+            raise BaseException("Not a bitcoin address")
         return {'address': uri}
 
     u = urlparse.urlparse(uri)
-    if u.scheme != 'pandacoin':
-        raise BaseException("Not a pandacoin URI")
+    if u.scheme != 'bitcoin':
+        raise BaseException("Not a bitcoin URI")
     address = u.path
 
     # python for android fails to parse query
@@ -404,7 +420,7 @@ def parse_URI(uri, on_pr=None):
     out = {k: v[0] for k, v in pq.items()}
     if address:
         if not bitcoin.is_address(address):
-            raise BaseException("Invalid pandacoin address:" + address)
+            raise BaseException("Invalid bitcoin address:" + address)
         out['address'] = address
     if 'amount' in out:
         am = out['amount']
@@ -455,7 +471,7 @@ def create_URI(addr, amount, message):
         if type(message) == unicode:
             message = message.encode('utf8')
         query.append('message=%s'%urllib.quote(message))
-    p = urlparse.ParseResult(scheme='pandacoin', netloc='', path=addr, params='', query='&'.join(query), fragment='')
+    p = urlparse.ParseResult(scheme='bitcoin', netloc='', path=addr, params='', query='&'.join(query), fragment='')
     return urlparse.urlunparse(p)
 
 

@@ -20,7 +20,6 @@ from kivy.utils import platform
 from electrum.util import profiler, parse_URI, format_time, InvalidPassword, NotEnoughFunds
 from electrum import bitcoin
 from electrum.util import timestamp_to_datetime
-from electrum.plugins import run_hook
 from electrum.paymentrequest import PR_UNPAID, PR_PAID, PR_UNKNOWN, PR_EXPIRED
 
 from context_menu import ContextMenu
@@ -148,9 +147,9 @@ class HistoryScreen(CScreen):
         ri.value_known = value is not None
         ri.confirmations = conf
         if self.app.fiat_unit and date:
-            rate = run_hook('history_rate', date)
+            rate = self.app.fx.history_rate(date)
             if rate:
-                s = run_hook('value_str', value, rate)
+                s = self.app.fx.value_str(value, rate)
                 ri.quote_text = '' if s is None else s + ' ' + self.app.fiat_unit
         return ri
 
@@ -181,7 +180,7 @@ class SendScreen(CScreen):
         try:
             uri = electrum.util.parse_URI(text, self.app.on_pr)
         except:
-            self.app.show_info(_("Not a Pandacoin URI"))
+            self.app.show_info(_("Not a Bitcoin URI"))
             return
         amount = uri.get('amount')
         self.screen.address = uri.get('address', '')
@@ -251,10 +250,10 @@ class SendScreen(CScreen):
         else:
             address = str(self.screen.address)
             if not address:
-                self.app.show_error(_('Recipient not specified.') + ' ' + _('Please scan a Pandacoin address or a payment request'))
+                self.app.show_error(_('Recipient not specified.') + ' ' + _('Please scan a Bitcoin address or a payment request'))
                 return
             if not bitcoin.is_address(address):
-                self.app.show_error(_('Invalid Pandacoin Address') + ':\n' + address)
+                self.app.show_error(_('Invalid Bitcoin Address') + ':\n' + address)
                 return
             try:
                 amount = self.app.get_amount(self.screen.amount)
@@ -331,12 +330,15 @@ class ReceiveScreen(CScreen):
     def get_new_address(self):
         if not self.app.wallet:
             return False
+        self.clear()
         addr = self.app.wallet.get_unused_address()
         if addr is None:
-            return False
-        self.clear()
+            addr = self.app.wallet.get_receiving_address()
+            b = False
+        else:
+            b = True
         self.screen.address = addr
-        return True
+        return b
 
     def on_address(self, addr):
         req = self.app.wallet.get_payment_request(addr, self.app.electrum_config)
@@ -366,7 +368,7 @@ class ReceiveScreen(CScreen):
 
     def do_share(self):
         uri = self.get_URI()
-        self.app.do_share(uri, _("Share Pandacoin Request"))
+        self.app.do_share(uri, _("Share Bitcoin Request"))
 
     def do_copy(self):
         uri = self.get_URI()

@@ -6,13 +6,13 @@ import sys
 import traceback
 
 import electrum
-from electrum.bitcoin import EncodeBase58Check, DecodeBase58Check, TYPE_ADDRESS, int_to_hex, var_int
+from electrum import bitcoin
+from electrum.bitcoin import TYPE_ADDRESS, int_to_hex, var_int
 from electrum.i18n import _
 from electrum.plugins import BasePlugin, hook
 from electrum.keystore import Hardware_KeyStore, parse_xpubkey
 from ..hw_wallet import HW_PluginBase
-from electrum.util import format_satoshis_plain, print_error
-
+from electrum.util import format_satoshis_plain, print_error, is_verbose
 
 try:
     import hid
@@ -20,11 +20,10 @@ try:
     from btchip.btchip import btchip
     from btchip.btchipUtils import compress_public_key,format_transaction, get_regular_input_script, get_p2sh_input_script
     from btchip.bitcoinTransaction import bitcoinTransaction
-    from btchip.btchipPersoWizard import StartBTChipPersoDialog
     from btchip.btchipFirmwareWizard import checkFirmware, updateFirmware
     from btchip.btchipException import BTChipException
     BTCHIP = True
-    BTCHIP_DEBUG = False
+    BTCHIP_DEBUG = is_verbose
 except ImportError:
     BTCHIP = False
 
@@ -80,15 +79,11 @@ class Ledger_Client():
                 childnum = int(lastChild[0])
             else:
                 childnum = 0x80000000 | int(lastChild[0])
-            xpub = "0488B21E".decode('hex') + chr(depth) + self.i4b(fingerprint) + self.i4b(childnum) + str(nodeData['chainCode']) + str(publicKey)
-        except Exception, e:
-            #self.give_error(e, True)
+            xpub = bitcoin.serialize_xpub(0, str(nodeData['chainCode']), str(publicKey), depth, self.i4b(fingerprint), self.i4b(childnum))
+            return xpub
+        except Exception as e:
+            print_error(e)
             return None
-        finally:
-            #self.handler.clear_dialog()
-            pass
-
-        return EncodeBase58Check(xpub)
 
     def has_detached_pin_support(self, client):
         try:
@@ -110,9 +105,13 @@ class Ledger_Client():
                 return True
             raise e
 
+    def supports_multi_output(self):
+        return self.multiOutputSupported
+
     def perform_hw1_preflight(self):
         try:
             firmware = self.dongleObject.getFirmwareVersion()['version'].split(".")
+            self.multiOutputSupported = int(firmware[0]) >= 1 and int(firmware[1]) >= 1 and int(firmware[2]) >= 4
             if not checkFirmware(firmware):
                 self.dongleObject.dongle.close()
                 raise Exception("HW1 firmware version too old. Please update at https://www.ledgerwallet.com")
@@ -121,8 +120,7 @@ class Ledger_Client():
             except BTChipException, e:
                 if (e.sw == 0x6985):
                     self.dongleObject.dongle.close()
-                    dialog = StartBTChipPersoDialog()
-                    dialog.exec_()
+                    self.handler.get_setup( )
                     # Acquire the new client on the next run
                 else:
                     raise e
@@ -172,11 +170,20 @@ class Ledger_KeyStore(Hardware_KeyStore):
         # device reconnects
         self.force_watching_only = False
         self.signing = False
+        self.cfg = d.get('cfg', {'mode':0,'pair':''})
+        
+    def dump(self):
+        obj = Hardware_KeyStore.dump(self)
+        obj['cfg'] = self.cfg
+        return obj
 
     def get_derivation(self):
         return self.derivation        
 
     def get_client(self):
+        return self.plugin.get_client(self).dongleObject
+    
+    def get_client_electrum(self):
         return self.plugin.get_client(self)
     
     def give_error(self, message, clear_client = False):
@@ -209,18 +216,19 @@ class Ledger_KeyStore(Hardware_KeyStore):
             info = self.get_client().signMessagePrepare(address_path, message)
             pin = ""
             if info['confirmationNeeded']:
-                # TODO : handle different confirmation types. For the time being only supports keyboard 2FA
-                confirmed, p, pin = self.password_dialog()
-                if not confirmed:
-                    raise Exception('Aborted by user')
-                pin = pin.encode()
-                #self.plugin.get_client(self, True, True)
+                pin = self.handler.get_auth( info ) # does the authenticate dialog and returns pin
+                if not pin:
+                    raise UserWarning(_('Cancelled by user'))
+                pin = str(pin).encode()
             signature = self.get_client().signMessageSign(pin)
         except BTChipException, e:
             if e.sw == 0x6a80:
                 self.give_error("Unfortunately, this message cannot be signed by the Ledger wallet. Only alphanumerical messages shorter than 140 characters are supported. Please remove any extra characters (tab, carriage return) and retry.")
             else:
                 self.give_error(e, True)
+        except UserWarning:
+            self.handler.show_error(_('Cancelled by user'))
+            return ''
         except Exception, e:
             self.give_error(e, True)
         finally:
@@ -260,7 +268,7 @@ class Ledger_KeyStore(Hardware_KeyStore):
         output = None
         outputAmount = None
         p2shTransaction = False
-	reorganize = False
+    	reorganize = False
         pin = ""
         self.get_client() # prompt for the PIN before displaying the dialog if necessary
 
@@ -303,8 +311,9 @@ class Ledger_KeyStore(Hardware_KeyStore):
 
         # Recognize outputs - only one output and one change is authorized
         if not p2shTransaction:
-            if len(tx.outputs()) > 2: # should never happen
-                self.give_error("Transaction with more than 2 outputs not supported")
+            if not self.get_client_electrum().supports_multi_output():
+                if len(tx.outputs()) > 2:
+                    self.give_error("Transaction with more than 2 outputs not supported")
             for _type, address, amount in tx.outputs():
                 assert _type == TYPE_ADDRESS
                 info = tx.output_info.get(address)
@@ -334,6 +343,7 @@ class Ledger_KeyStore(Hardware_KeyStore):
             firstTransaction = True
             inputIndex = 0
             rawTx = tx.serialize()
+            self.get_client().enableAlternate2fa(False)
             while inputIndex < len(inputs):
                 self.get_client().startUntrustedTransaction(firstTransaction, inputIndex,
                                                             chipInputs, redeemScripts[inputIndex])
@@ -348,44 +358,24 @@ class Ledger_KeyStore(Hardware_KeyStore):
                 if firstTransaction:
                     transactionOutput = outputData['outputData']
                 if outputData['confirmationNeeded']:
-                    # TODO : handle different confirmation types. For the time being only supports keyboard 2FA
+                    outputData['address'] = output
                     self.handler.clear_dialog()
-                    if 'keycardData' in outputData:
-                        pin2 = ""
-                        for keycardIndex in range(len(outputData['keycardData'])):
-                            msg = "Do not enter your device PIN here !\r\n\r\n" + \
-                                "Your Ledger Wallet wants to talk to you and tell you a unique second factor code.\r\n" + \
-                                "For this to work, please match the character between stars of the output address using your security card\r\n\r\n" + \
-                                "Output address : "
-                            for index in range(len(output)):
-                                if index == outputData['keycardData'][keycardIndex]:
-                                    msg = msg + "*" + output[index] + "*"
-                                else:
-                                    msg = msg + output[index]
-                            msg = msg + "\r\n"
-                            confirmed, p, pin = self.password_dialog(msg)
-                            if not confirmed:
-                                raise Exception('Aborted by user')
-                            try:
-                                pin2 = pin2 + chr(int(pin[0], 16))
-                            except:
-                                raise Exception('Invalid PIN character')
-                        pin = pin2
-                    else:
-                        confirmed, p, pin = self.password_dialog()
-                        if not confirmed:
-                            raise Exception('Aborted by user')
-                        pin = pin.encode()
-                        #self.plugin.get_client(self, True, True)
-                    self.handler.show_message("Signing ...")
+                    pin = self.handler.get_auth( outputData ) # does the authenticate dialog and returns pin
+                    if not pin:
+                        raise UserWarning()
+                    if pin != 'paired':
+                        self.handler.show_message(_("Confirmed. Signing Transaction..."))
                 else:
                     # Sign input with the provided PIN
-                    inputSignature = self.get_client().untrustedHashSign(inputsPaths[inputIndex],
-                    pin)
+                    inputSignature = self.get_client().untrustedHashSign(inputsPaths[inputIndex], pin)
                     inputSignature[0] = 0x30 # force for 1.4.9+
                     signatures.append(inputSignature)
                     inputIndex = inputIndex + 1
-                firstTransaction = False
+                if pin != 'paired':
+                    firstTransaction = False
+        except UserWarning:
+            self.handler.show_error(_('Cancelled by user'))
+            return
         except BaseException as e:
             traceback.print_exc(file=sys.stdout)
             self.give_error(e, True)
@@ -411,23 +401,6 @@ class Ledger_KeyStore(Hardware_KeyStore):
         else:
            tx.update_signatures(updatedTransaction)
         self.signing = False
-
-    def password_dialog(self, msg=None):
-        if not msg:
-            msg = _("Do not enter your device PIN here !\r\n\r\n" \
-                    "Your Ledger Wallet wants to talk to you and tell you a unique second factor code.\r\n" \
-                    "For this to work, please open a text editor " \
-                    "(on a different computer / device if you believe this computer is compromised) " \
-                    "and put your cursor into it, unplug your Ledger Wallet and plug it back in.\r\n" \
-                    "It should show itself to your computer as a keyboard " \
-                    "and output the second factor along with a summary of " \
-                    "the transaction being signed into the text-editor.\r\n\r\n" \
-                    "Check that summary and then enter the second factor code here.\r\n" \
-                    "Before clicking OK, re-plug the device once more (unplug it and plug it again if you read the second factor code on the same computer)")
-        response = self.handler.get_word(msg)
-        if response is None:
-            return False, None, None
-        return True, response, response
 
 
 class LedgerPlugin(HW_PluginBase):
@@ -502,6 +475,5 @@ class LedgerPlugin(HW_PluginBase):
         #if client:
         #    client.used()
         if client <> None:
-            client.checkDevice()
-            client = client.dongleObject            
+            client.checkDevice()                    
         return client

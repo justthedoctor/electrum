@@ -61,7 +61,7 @@ def check_imports():
     # pure-python dependencies need to be imported here for pyinstaller
     try:
         import dns
-        import aes
+        import pyaes
         import ecdsa
         import requests
         import six
@@ -95,7 +95,7 @@ if is_bundle or is_local or is_android:
     imp.load_module('electrum', *imp.find_module('lib'))
     imp.load_module('electrum_gui', *imp.find_module('gui'))
 
-
+from electrum import bitcoin, network
 from electrum import SimpleConfig, Network
 from electrum.wallet import Wallet
 from electrum.storage import WalletStorage
@@ -311,18 +311,23 @@ if __name__ == '__main__':
     if config_options.get('portable'):
         config_options['electrum_path'] = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'electrum_data')
 
-    set_verbosity(config_options.get('verbose'))
+    # kivy sometimes freezes when we write to sys.stderr
+    set_verbosity(config_options.get('verbose') and config_options.get('gui')!='kivy')
 
     # check uri
     uri = config_options.get('url')
     if uri:
-        if not uri.startswith('pandacoin:'):
+        if not uri.startswith('bitcoin:'):
             print_stderr('unknown command:', uri)
             sys.exit(1)
         config_options['url'] = uri
 
     config = SimpleConfig(config_options)
     cmdname = config.get('cmd')
+
+    if config.get('testnet'):
+        bitcoin.set_testnet()
+        network.set_testnet()
 
     # run non-RPC commands separately
     if cmdname in ['create', 'restore']:
@@ -342,14 +347,15 @@ if __name__ == '__main__':
 
     elif cmdname == 'daemon':
         subcommand = config.get('subcommand')
-        assert subcommand in ['start', 'stop', 'status']
-        if subcommand == 'start':
+        assert subcommand in [None, 'start', 'stop', 'status']
+        if subcommand in [None, 'start']:
             fd, server = daemon.get_fd_or_server(config)
             if fd is not None:
-                pid = os.fork()
-                if pid:
-                    print_stderr("starting daemon (PID %d)" % pid)
-                    sys.exit(0)
+                if subcommand == 'start':
+                    pid = os.fork()
+                    if pid:
+                        print_stderr("starting daemon (PID %d)" % pid)
+                        sys.exit(0)
                 init_plugins(config, 'cmdline')
                 d = daemon.Daemon(config, fd)
                 d.start()

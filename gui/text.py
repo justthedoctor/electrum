@@ -146,7 +146,7 @@ class ElectrumGui:
         self.stdscr.addstr(self.maxy -1, self.maxx-30, ' '.join([_("Settings"), _("Network"), _("Quit")]))
 
     def print_receive(self):
-        addr = self.wallet.get_unused_address()
+        addr = self.wallet.get_receiving_address()
         self.stdscr.addstr(2, 1, "Address: "+addr)
         self.print_qr(addr)
 
@@ -308,7 +308,7 @@ class ElectrumGui:
 
     def do_send(self):
         if not is_valid(self.str_recipient):
-            self.show_message(_('Invalid Pandacoin address'))
+            self.show_message(_('Invalid Bitcoin address'))
             return
         try:
             amount = int(Decimal(self.str_amount) * COIN)
@@ -321,7 +321,7 @@ class ElectrumGui:
             self.show_message(_('Invalid Fee'))
             return
 
-        if self.wallet.use_encryption:
+        if self.wallet.has_password():
             password = self.password_dialog()
             if not password:
                 return
