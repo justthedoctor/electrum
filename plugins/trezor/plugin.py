@@ -320,7 +320,7 @@ class TrezorCompatiblePlugin(HW_PluginBase):
                 has_change = True # no more than one change address
                 addrtype, hash_160 = bc_address_to_hash_160(address)
                 index, xpubs, m = info
-                if addrtype == 0:
+                if addrtype == 55:
                     address_n = self.client_class.expand_path(derivation + "/%d/%d"%index)
                     txoutputtype = self.types.TxOutputType(
                         amount = amount,

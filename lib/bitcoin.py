@@ -38,7 +38,7 @@ import pyaes
 
 # Bitcoin network constants
 TESTNET = False
-ADDRTYPE_P2PKH = 0
+ADDRTYPE_P2PKH = 55
 ADDRTYPE_P2SH = 5
 ADDRTYPE_P2WPKH = 6
 XPRV_HEADER = 0x0488ade4
