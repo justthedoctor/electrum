@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Electrum - lightweight Bitcoin client
+# Electrum - lightweight Digital Pandacoin client
 # Copyright (C) 2015 kyuupichan@gmail
 #
 # Permission is hereby granted, free of charge, to any person
@@ -107,7 +107,7 @@ class CoinChooserBase(PrintError):
     def change_amounts(self, tx, count, fee_estimator, dust_threshold):
         # Break change up if bigger than max_change
         output_amounts = [o[2] for o in tx.outputs()]
-        # Don't split change of less than 0.02 BTC
+        # Don't split change of less than 0.02 PND
         max_change = max(max(output_amounts) * 1.25, 0.02 * COIN)
 
         # Use N change outputs
@@ -299,7 +299,7 @@ class CoinChooserPrivacy(CoinChooserRandom):
                 badness += (min_change - change) / (min_change + 10000)
             elif change > max_change:
                 badness += (change - max_change) / (max_change + 10000)
-                # Penalize large change; 5 BTC excess ~= using 1 more input
+                # Penalize large change; 5 PND excess ~= using 1 more input
                 badness += change / (COIN * 5)
             return badness
 

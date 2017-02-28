@@ -16,3 +16,6 @@ env/
 .tox/
 .buildozer/
 bin/
+lib/*.pyc
+
+*.pyc

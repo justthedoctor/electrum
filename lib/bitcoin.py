@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python
 #
-# Electrum - lightweight Bitcoin client
+# Electrum - lightweight Digital Pandacoin client
 # Copyright (C) 2011 thomasv@gitorious
 #
 # Permission is hereby granted, free of charge, to any person
@@ -36,7 +36,7 @@ from util import print_error, InvalidPassword
 import ecdsa
 import pyaes
 
-# Bitcoin network constants
+# Digital Pandacoin network constants
 TESTNET = False
 ADDRTYPE_P2PKH = 55
 ADDRTYPE_P2SH = 5
@@ -282,7 +282,7 @@ def base_encode(v, base):
         result = chars[mod] + result
         long_value = div
     result = chars[long_value] + result
-    # Bitcoin does a little leading-zero-compression:
+    # Digital Pandacoin does a little leading-zero-compression:
     # leading 0-bytes in the input become leading-1s
     nPad = 0
     for c in v:
@@ -778,7 +778,7 @@ def xpub_from_xprv(xprv):
 
 
 def bip32_root(seed, xtype):
-    I = hmac.new("Bitcoin seed", seed, hashlib.sha512).digest()
+    I = hmac.new("Digital Pandacoin seed", seed, hashlib.sha512).digest()
     master_k = I[0:32]
     master_c = I[32:]
     K, cK = get_pubkeys_from_secret(master_k)

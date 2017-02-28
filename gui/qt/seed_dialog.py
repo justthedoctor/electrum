@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Electrum - lightweight Bitcoin client
+# Electrum - lightweight Digital Pandacoin client
 # Copyright (C) 2013 ecdsa@github
 #
 # Permission is hereby granted, free of charge, to any person
@@ -67,7 +67,7 @@ class SeedLayout(QVBoxLayout):
                         '<b>' + _('Warning') + '</b>' + ': ',
                         _('BIP39 seeds may not be supported in the future.'),
                         '<br/><br/>',
-                        _('As technology matures, Bitcoin address generation may change.'),
+                        _('As technology matures, Digital Pandacoin address generation may change.'),
                         _('However, BIP39 seeds do not include a version number.'),
                         _('As a result, it is not possible to infer your wallet type from a BIP39 seed.'),
                         '<br/><br/>',

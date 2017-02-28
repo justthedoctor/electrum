@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Electrum - Lightweight Bitcoin Client
+# Electrum - Lightweight Digital Pandacoin Client
 # Copyright (c) 2012 Thomas Voegtlin
 #
 # Permission is hereby granted, free of charge, to any person

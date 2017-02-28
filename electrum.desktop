@@ -2,13 +2,13 @@
 # sudo desktop-file-install electrum.desktop
 
 [Desktop Entry]
-Comment=Lightweight Bitcoin Client
+Comment=Lightweight Digital Pandacoin Client
 Exec=electrum %u
 GenericName[en_US]=Electrum
 GenericName=Electrum
 Icon=electrum
-Name[en_US]=Electrum Bitcoin Wallet
-Name=Electrum Bitcoin Wallet
+Name[en_US]=Electrum Digital Pandacoin Wallet
+Name=Electrum Digital Pandacoin Wallet
 Categories=Network;
 StartupNotify=false
 Terminal=false

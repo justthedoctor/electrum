@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Electrum - lightweight Bitcoin client
+# Electrum - lightweight Digital Pandacoin client
 # Copyright (C) 2012 thomasv@gitorious
 #
 # Permission is hereby granted, free of charge, to any person
@@ -336,7 +336,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             self.setGeometry(100, 100, 840, 400)
 
     def watching_only_changed(self):
-        title = 'Electrum %s  -  %s' % (self.wallet.electrum_version,
+        title = 'Digital Pandacoin Electrum %s  -  %s' % (self.wallet.electrum_version,
                                         self.wallet.basename())
         extra = [self.wallet.storage.get('wallet_type', '?')]
         if self.wallet.is_watching_only():
@@ -497,7 +497,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
     def show_about(self):
         QMessageBox.about(self, "Electrum",
-            _("Version")+" %s" % (self.wallet.electrum_version) + "\n\n" + _("Electrum's focus is speed, with low resource usage and simplifying Bitcoin. You do not need to perform regular backups, because your wallet can be recovered from a secret phrase that you can memorize or write on paper. Startup times are instant because it operates in conjunction with high-performance servers that handle the most complicated parts of the Bitcoin system."))
+            _("Version")+" %s" % (self.wallet.electrum_version) + "\n\n" + _("Electrum's focus is speed, with low resource usage and simplifying Digital Pandacoin. You do not need to perform regular backups, because your wallet can be recovered from a secret phrase that you can memorize or write on paper. Startup times are instant because it operates in conjunction with high-performance servers that handle the most complicated parts of the Digital Pandacoin system."))
 
     def show_report_bug(self):
         msg = ' '.join([
@@ -587,9 +587,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         if self.decimal_point == 2:
             return 'bits'
         if self.decimal_point == 5:
-            return 'mBTC'
+            return 'mPND'
         if self.decimal_point == 8:
-            return 'BTC'
+            return 'PND'
         raise Exception('Unknown base unit')
 
     def connect_fields(self, window, btc_e, fiat_e, fee_e):
@@ -708,7 +708,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.receive_address_e = ButtonsLineEdit()
         self.receive_address_e.addCopyButton(self.app)
         self.receive_address_e.setReadOnly(True)
-        msg = _('Bitcoin address where the payment should be received. Note that each payment request uses a different Bitcoin address.')
+        msg = _('Digital Pandacoin address where the payment should be received. Note that each payment request uses a different Digital Pandacoin address.')
         self.receive_address_label = HelpLabel(_('Receiving address'), msg)
         self.receive_address_e.textChanged.connect(self.update_receive_qr)
         self.receive_address_e.setFocusPolicy(Qt.NoFocus)
@@ -738,7 +738,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         msg = ' '.join([
             _('Expiration date of your request.'),
             _('This information is seen by the recipient if you send them a signed payment request.'),
-            _('Expired requests have to be deleted manually from your list, in order to free the corresponding Bitcoin addresses.'),
+            _('Expired requests have to be deleted manually from your list, in order to free the corresponding Digital Pandacoin addresses.'),
             _('The bitcoin address never expires and will always be part of this electrum wallet.'),
         ])
         grid.addWidget(HelpLabel(_('Request expires'), msg), 3, 0)
@@ -950,7 +950,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         self.amount_e = BTCAmountEdit(self.get_decimal_point)
         self.payto_e = PayToEdit(self)
         msg = _('Recipient of the funds.') + '\n\n'\
-              + _('You may enter a Bitcoin address, a label from your list of contacts (a list of completions will be proposed), or an alias (email-like address that forwards to a Bitcoin address)')
+              + _('You may enter a Digital Pandacoin address, a label from your list of contacts (a list of completions will be proposed), or an alias (email-like address that forwards to a Digital Pandacoin address)')
         payto_label = HelpLabel(_('Pay to'), msg)
         grid.addWidget(payto_label, 1, 0)
         grid.addWidget(self.payto_e, 1, 1, 1, -1)
@@ -997,7 +997,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         hbox.addStretch(1)
         grid.addLayout(hbox, 4, 4)
 
-        msg = _('Bitcoin transactions are in general not free. A transaction fee is paid by the sender of the funds.') + '\n\n'\
+        msg = _('Digital Pandacoin transactions are in general not free. A transaction fee is paid by the sender of the funds.') + '\n\n'\
               + _('The amount of fee can be decided freely by the sender. However, transactions with low fees take more time to be processed.') + '\n\n'\
               + _('A suggested fee is automatically added to this field. You may override it. The suggested fee increases with the size of the transaction.')
         self.fee_e_label = HelpLabel(_('Fee'), msg)
@@ -1225,10 +1225,10 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
 
         for _type, addr, amount in outputs:
             if addr is None:
-                self.show_error(_('Bitcoin Address is None'))
+                self.show_error(_('Digital Pandacoin Address is None'))
                 return
             if _type == TYPE_ADDRESS and not bitcoin.is_address(addr):
-                self.show_error(_('Invalid Bitcoin Address'))
+                self.show_error(_('Invalid Digital Pandacoin Address'))
                 return
             if amount is None:
                 self.show_error(_('Invalid Amount'))
@@ -1839,7 +1839,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         address  = str(address.text()).strip()
         message = unicode(message.toPlainText()).encode('utf-8').strip()
         if not bitcoin.is_address(address):
-            self.show_message('Invalid Bitcoin address.')
+            self.show_message('Invalid Digital Pandacoin address.')
             return
         if not bitcoin.is_p2pkh(address):
             self.show_message('Cannot sign messages with this type of address.')
@@ -1856,7 +1856,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         address  = str(address.text()).strip()
         message = unicode(message.toPlainText()).encode('utf-8').strip()
         if not bitcoin.is_address(address):
-            self.show_message('Invalid Bitcoin address.')
+            self.show_message('Invalid Digital Pandacoin address.')
             return
         if not bitcoin.is_p2pkh(address):
             self.show_message('Cannot verify messages with this type of address.')
@@ -2464,7 +2464,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         SSL_id_e.setReadOnly(True)
         id_widgets.append((SSL_id_label, SSL_id_e))
 
-        units = ['BTC', 'mBTC', 'bits']
+        units = ['PND', 'mPND', 'bits']
         msg = _('Base unit of your wallet.')\
               + '\n1BTC=1000mBTC.\n' \
               + _(' These settings affects the fields in the Send tab')+' '
@@ -2478,9 +2478,9 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
                 return
             edits = self.amount_e, self.fee_e, self.receive_amount_e
             amounts = [edit.get_amount() for edit in edits]
-            if unit_result == 'BTC':
+            if unit_result == 'PND':
                 self.decimal_point = 8
-            elif unit_result == 'mBTC':
+            elif unit_result == 'mPND':
                 self.decimal_point = 5
             elif unit_result == 'bits':
                 self.decimal_point = 2
