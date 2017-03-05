@@ -350,10 +350,12 @@ def time_difference(distance_in_time, include_seconds):
 block_explorer_info = {
     'Cryptoid': ('https://chainz.cryptoid.info/pnd/',
                         {'tx': 'tx.dws?', 'addr': 'address.dws?'}),
+	'bchain': ('https://bchain.info/PND/',
+                        {'tx': 'tx/', 'addr': 'address/'}),
 }
 
 def block_explorer(config):
-    return config.get('block_explorer', 'https://chainz.cryptoid.info/pnd')
+    return config.get('block_explorer', 'Cryptoid')
 
 def block_explorer_tuple(config):
     return block_explorer_info.get(block_explorer(config))

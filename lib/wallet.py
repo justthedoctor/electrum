@@ -446,7 +446,7 @@ class Abstract_Wallet(PrintError):
                     if conf:
                         status = _("%d confirmations") % conf
                     else:
-                        status = _('Not verified')
+                        status = _('Not Verified')
                 else:
                     status = _('Unconfirmed')
                     if fee is None:
@@ -1173,7 +1173,7 @@ class Abstract_Wallet(PrintError):
         if not r:
             return
         out = copy.copy(r)
-        out['URI'] = 'bitcoin:' + addr + '?amount=' + util.format_satoshis(out.get('amount'))
+        out['URI'] = 'pandacoin:' + addr + '?amount=' + util.format_satoshis(out.get('amount'))
         status, conf = self.get_request_status(addr)
         out['status'] = status
         if conf is not None:
