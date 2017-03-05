@@ -241,7 +241,7 @@ class ElectrumWindow(App):
         if is_address(data):
             self.set_URI(data)
             return
-        if data.startswith('pandacoin:'):
+        if data.startswith('bitcoin:'):
             self.set_URI(data)
             return
         # try to decode transaction
@@ -396,7 +396,7 @@ class ElectrumWindow(App):
 
         # default tab
         self.switch_to('history')
-        # bind intent for pandacoin: URI scheme
+        # bind intent for bitcoin: URI scheme
         if platform == 'android':
             from android import activity
             from jnius import autoclass
