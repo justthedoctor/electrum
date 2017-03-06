@@ -82,7 +82,7 @@ class ElectrumWindow(App):
         self.send_screen.set_URI(uri)
 
     def on_new_intent(self, intent):
-        if intent.getScheme() != 'bitcoin':
+        if intent.getScheme() != 'pandacoin':
             return
         uri = intent.getDataString()
         self.set_URI(uri)
