@@ -56,14 +56,14 @@ class TestUtil(unittest.TestCase):
                                 {'address': '15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma', 'amount': 4000, 'label': 'electrum-test', 'message': u'electrum test', 'memo': u'electrum test', 'r': 'http://domain.tld/page', 'test': 'none'})
 
     def test_parse_URI_no_address_request_url(self):
-        self._do_test_parse_URI('bitcoin:?r=http://domain.tld/page?h%3D2a8628fc2fbe',
+        self._do_test_parse_URI('pandacoin:?r=http://domain.tld/page?h%3D2a8628fc2fbe',
                                 {'r': 'http://domain.tld/page?h=2a8628fc2fbe'})
 
     def test_parse_URI_invalid_address(self):
         self.assertRaises(BaseException, parse_URI, 'pandacoin:invalidaddress')
 
     def test_parse_URI_invalid(self):
-        self.assertRaises(BaseException, parse_URI, 'notbitcoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma')
+        self.assertRaises(BaseException, parse_URI, 'notpandacoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma')
 
     def test_parse_URI_parameter_polution(self):
         self.assertRaises(Exception, parse_URI, 'pandacoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma?amount=0.0003&label=test&amount=30.0')
